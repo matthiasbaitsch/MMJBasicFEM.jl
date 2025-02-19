@@ -1,0 +1,93 @@
+---
+title: Circular heat plate
+engine: julia
+---
+
+
+
+```{julia}
+using MMJMesh
+using MMJMesh.Meshes
+using MMJMesh.Plots
+using LinearAlgebra
+using SparseArrays
+using CairoMakie: spy, update_theme!
+
+include("../src/fem.jl")
+include("../src/heat.jl")
+
+update_theme!(colormap=:acton)
+```
+
+## Parameters
+
+```{julia}
+p = (
+    r = 2.2,
+    λ = 2.19,
+    w = 1.96
+)
+```
+
+## Mesh
+
+```{julia}
+m = Mesh("""
+SetFactory("OpenCASCADE");
+Point(1) = {0, 0, 0};
+Disk(1) = {0, 0, 0, 2.2, 2.2};
+Point{1} In Surface{1};
+MeshSize{:} = 0.1;
+Recombine Surface {1};
+Mesh 2;
+""")
+mplot(m, edgesvisible=true) |> mconf()
+```
+
+## Solution
+
+### Define problem
+
+```{julia}
+setdata!(group(m, :elements), :ke_func, heat_ke(p.λ))
+setdata!(group(m, :elements), :re_func, heat_re(p.w))
+```
+
+### Set up linear system
+
+```{julia}
+K, r = assemble_kr(m)
+apply_dirichlet_bcs!(K, r, group(m, :boundarynodes))
+```
+
+### Solve
+
+Linear system
+
+```{julia}
+θHat =  K \ r;
+```
+
+Comparison to exact solution
+
+```{julia}
+thetaMax = p.w * p.r^2 / (4 * p.λ)
+thetaMaxH = maximum(θHat)
+
+println("         Exact solution: thethaMax = ", thetaMax)
+println("Finite element solution: thethaMax = ", thetaMaxH)
+println("                             Error = ", 100 * abs(thetaMaxH - thetaMax) / thetaMax, "%")
+```
+
+### Plot
+
+```{julia}
+mplot(m, θHat, edgesvisible=true, edgecolor=:black) |> mconf()
+```
+
+```{julia}
+θ = p.w / (4 * p.λ) * (p.r^2 .- [norm(coordinates(m, i))^2 for i ∈ 1:nnodes(m)]) 
+e = abs.(θHat - θ)
+println("Maximum error: ", maximum(e))
+mplot(m, e) |> mconf()
+```
