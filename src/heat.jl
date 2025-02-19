@@ -1,4 +1,3 @@
-using MMJMesh
 using MMJMesh.Geometries
 using MMJMesh.Mathematics
 
@@ -12,7 +11,7 @@ const ∇ξN = MMJMesh.Mathematics.TransposeMapping(jacobian(N))
 
 # Element matrix
 function heat_ke(λ)
-    function ke_func(e::Face{2, 2, 4})
+    function ke_func(e::Face{2,4})
         Ke = zeros(4, 4)
         jF = jacobian(parametrization(geometry(e)))
         for (ξ, w) ∈ zip(gauss_p, gauss_w)
@@ -27,13 +26,12 @@ function heat_ke(λ)
 end
 
 # Element vector
-function heat_re(w)
-    function re_func(e)
+function heat_re(ww)
+    function re_func(e::Face{2,4})
         re = zeros(4)
         jF = jacobian(parametrization(geometry(e)))
-        for ξ ∈ gaussPoints
-            J = jF(ξ)
-            re += w * N(ξ) * det(J)
+        for (ξ, w) ∈ zip(gauss_p, gauss_w)
+            re += ww * w * N(ξ) * det(jF(ξ))
         end
         return re
     end

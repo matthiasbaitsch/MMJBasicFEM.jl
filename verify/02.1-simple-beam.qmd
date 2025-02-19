@@ -1,0 +1,74 @@
+---
+title: Beam
+engine: julia
+---
+
+
+
+```{julia}
+using MMJMesh
+using MMJMesh.Meshes
+using MMJMesh.Plots
+using LinearAlgebra
+using SparseArrays
+using CairoMakie: spy, update_theme!
+
+include("../src/fem.jl")
+include("../src/beam-1d.jl")
+```
+
+## Parameters
+
+```{julia}
+EI = 110000
+l = 8
+q = 3
+```
+
+## Mesh
+
+```{julia}
+m = Mesh(0 .. l, 100)
+mplot(m, edgesvisible=true) |> mconf()
+```
+
+## Solution
+
+### Define problem
+
+```{julia}
+setdata!(group(m, :elements), :ke_func, beam_ke(EI))
+setdata!(group(m, :elements), :re_func, beam_re(q))
+```
+
+### Set up linear system
+
+```{julia}
+K, r = assemble_kr(m, 2)
+apply_dirichlet_bcs!(K, r, [1, 2 * nnodes(m) - 1])
+```
+
+### Solve
+
+Linear system
+
+```{julia}
+wHat = K \ r;
+```
+
+Comparison to exact solution
+
+```{julia}
+wMax = 5 * q * l^4 / (384 * EI)
+wMaxH = maximum(wHat[1:2:end])
+
+println("         Exact solution: thethaMax = ", wMax)
+println("Finite element solution: thethaMax = ", wMaxH)
+println("                             Error = ", 100 * abs(wMaxH - wMax) / wMax, "%")
+```
+
+### Plot
+
+```{julia}
+mplot(m, wHat[1:2:end]) |> mconf()
+```
